@@ -125,6 +125,11 @@ AC_ARG_ENABLE([hardsid],
 
 AM_CONDITIONAL([HARDSID], [test "x$enable_hardsid" = "xyes"])
 
+AC_ARG_ENABLE([dumpsid],
+  AS_HELP_STRING([--enable-dumpsid],[enable dumpsid builder [default=no]])
+)
+
+AM_CONDITIONAL([DUMPSID], [test "x$enable_dumpsid" = "xyes"])
 
 AC_ARG_ENABLE([inline],
   AS_HELP_STRING([--enable-inline],[enable inlining of functions [default=yes]])

@@ -77,6 +77,10 @@ if HARDSID
   noinst_LTLIBRARIES += src/builders/hardsid-builder/libsidplayfp-hardsid.la
 endif
 
+if DUMPSID
+  noinst_LTLIBRARIES += src/builders/dumpsid-builder/libsidplayfp-dumpsid.la
+endif
+
 if EXSID_SUPPORT
   noinst_LTLIBRARIES += src/builders/exsid-builder/libsidplayfp-exsid.la
 endif
@@ -218,6 +222,10 @@ src_libsidplayfp_la_CPPFLAGS = $(LIBGCRYPT_CFLAGS) $(AM_CPPFLAGS)
 
 if HARDSID
   src_libsidplayfp_la_LIBADD += src/builders/hardsid-builder/libsidplayfp-hardsid.la
+endif
+
+if DUMPSID
+  src_libsidplayfp_la_LIBADD += src/builders/dumpsid-builder/libsidplayfp-dumpsid.la
 endif
 
 if EXSID_SUPPORT
@@ -365,6 +373,17 @@ src_builders_hardsid_builder_libsidplayfp_hardsid_la_SOURCES = \
 $(hardsid_src) \
 src/builders/hardsid-builder/hardsid-builder.cpp  \
 src/builders/hardsid-builder/hardsid-emu.h
+endif
+
+if DUMPSID
+src_builders_dumpsid_builder_libsidplayfp_dumpsid_ladir = $(includedir)/sidplayfp/builders
+src_builders_dumpsid_builder_libsidplayfp_dumpsid_la_HEADERS = \
+src/builders/dumpsid-builder/dumpsid.h
+
+src_builders_dumpsid_builder_libsidplayfp_dumpsid_la_SOURCES = \
+src/builders/dumpsid-builder/dumpsid-emu.cpp \
+src/builders/dumpsid-builder/dumpsid-builder.cpp  \
+src/builders/dumpsid-builder/dumpsid-emu.h
 endif
 
 

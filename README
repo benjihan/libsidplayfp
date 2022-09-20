@@ -82,6 +82,9 @@ disabled by default
 --enable-hardsid
 enables hardsid support
 
+--enable-dumpsid
+enables dumpsid support, a driver that dump SID access to a file or a file descriptor
+
 --with-gcrypt / --without-gcrypt
 force/disable libgcrypt support for MD5 computation
 default check
