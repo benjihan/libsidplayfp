@@ -76,10 +76,8 @@ namespace libsidplayfp
 
 // const unsigned int DumpSID::voices = DUMPSID_VOICES;
 
-const char DumpSID::def_absfmt[] = "%016" PRIX64 " %02X%s%02X\n";
-const char DumpSID::def_relfmt[] = "%04X"        " %02X%s%02X\n";
-const char DumpSID::def_inifmt[] = "!SID %02X %04x %.4f\n";
-// unsigned int DumpSID::sid = 0;
+const char DumpSID::inifmt[] = "%08X %02X %02X %04x %.4f\n";
+const char DumpSID::relfmt[] = "%04X %02X%s%02X\n";
 
 const char* DumpSID::getCredits()
 {
@@ -90,7 +88,6 @@ const char* DumpSID::getCredits()
 
 DumpSID::DumpSID (sidbuilder *builder, int num, int fd, const char * fn) :
     sidemu(builder),
-    m_absfmt(def_absfmt), m_relfmt(def_relfmt), m_inifmt(def_inifmt),
     m_num(num), m_fd(fd), m_fn(fn),
     m_model(0), m_sidfrq(0),
     m_boost(false)
@@ -108,16 +105,15 @@ void DumpSID::reset(uint8_t vol_and_filter)
     ::printf("DumpSID<%u>::reset(volume:%u)\n",
              unsigned(m_num), unsigned(vol_and_filter));
 #endif
-    m_accessClk = 0;
-    m_deltaClk = 0;
-    m_regs[0x18] = vol_and_filter;
-    if (m_model && m_sidfrq > 0) {
-        // Dump SID setting.
-        char tmp[128];
-        int len = ::snprintf(tmp, sizeof(tmp), m_inifmt,
-                             byteAddr(0), m_model, m_sidfrq);
-        dumpStr(tmp,len);
+    m_accessClk = m_deltaClk = 0;
+
+    if (eventScheduler) {
+        dumpIni(0, byteAddr(0), vol_and_filter, m_model, m_sidfrq);
     }
+
+        // GB: CAN NOT call clock() at this point
+        // m_regs[0x18] = vol_and_filter;
+        // dumpRel(0, byteAddr(0x18), " ", vol_and_filter);
 }
 
 void DumpSID::clock()
@@ -134,7 +130,7 @@ void DumpSID::clock()
 void DumpSID::dumpStr(const char * str, const int n)
 {
     DumpSIDBuilder * const b = static_cast<DumpSIDBuilder*>(builder());
-    if (1 || b->getStatus())
+    if (b->getStatus())
       b->dumpStr(str, n);
 }
 
@@ -150,17 +146,14 @@ void DumpSID::dumpFmt(const char * fmt, ...)
     dumpStr(str, len);
 }
 
-void DumpSID::dumpAbs(const uint64_t clk, const int adr,
-                      const char *dir, const int val)
-{
-    dumpFmt(m_absfmt, clk, adr, dir, val);
-}
-
 
 void DumpSID::dumpRel(const unsigned clk, const int adr,
                       const char *dir, const int val)
 {
-    dumpFmt(m_relfmt, (unsigned int) clk, adr, dir, val);
+    assert( (clk & 0xffff) == clk );
+    assert( (adr & 0xFF) == adr );
+    assert( (val & 0xFF) == val );
+    dumpFmt(relfmt, clk, adr, dir, val);
 }
 
 void DumpSID::dumpReg(const uint8_t addr,
@@ -168,10 +161,12 @@ void DumpSID::dumpReg(const uint8_t addr,
 {
     clock();
     const int adr( byteAddr(addr) ); // build byte address
-    if (m_deltaClk >= 0x10000)
-        dumpAbs(m_accessClk, adr, dir, data);
-    else
-        dumpRel(m_deltaClk, adr, dir, data);
+    const unsigned relClk( m_deltaClk & 0xFFFF );
+    const unsigned jmpClk( m_deltaClk >> 16 );
+    if ( jmpClk ) {
+        dumpIni(jmpClk, 0, 0, 0, 0);
+    }
+    dumpRel(relClk, adr, dir, data);
 }
 
 uint8_t DumpSID::read(uint_least8_t addr)
@@ -190,7 +185,7 @@ uint8_t DumpSID::read(uint_least8_t addr)
             //     require at least a simple simulation. IDK if any
             //     player uses this value as input for other SID
             //     parameter (eg. filter cut-off).
-            dumpReg(addr, "<", data);
+            dumpReg(addr, ">", data);
             break;
     }
     return data;
@@ -198,7 +193,7 @@ uint8_t DumpSID::read(uint_least8_t addr)
 
 void DumpSID::write(uint_least8_t addr, uint8_t data)
 {
-#if 0
+#if defined(DEBUG) && DEBUG >= 10
     ::printf("DumpSID<%u>::write($%04X,$%02X)\n", m_num, unsigned(addr), unsigned(data));
 #endif
     addr &= 31;
@@ -213,12 +208,12 @@ void DumpSID::write(uint_least8_t addr, uint8_t data)
         if (m_muted & 4) return;        // voice #3 muted
     }
     else if ( addr < 0x18 ) {
-      if (!m_filter) return;            // filter disabled
+        if (!m_filter) return;          // filter disabled
     }
     else if (addr == 0x18) {
         if (!m_filter) data &= 0x8F;    // filter disabled H/B?L bits
     }
-    else return;                      // Ignore RO regsters
+    else return;                        // Ignore RO regsters
     dumpReg(addr, " ", data);
 }
 

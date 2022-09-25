@@ -21,20 +21,17 @@
 #ifndef DUMPSID_EMU_H
 #define DUMPSID_EMU_H
 
-#include "sidemu.h"
-#include "Event.h"
-#include "EventScheduler.h"
-#include "sidplayfp/siddefs.h"
-
-#include "sidcxx11.h"
-
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
 
-#include <cstdarg>
+#include "sidemu.h"
+#include "Event.h"
+#include "EventScheduler.h"
+#include "sidplayfp/siddefs.h"
+#include "sidcxx11.h"
 
-//#define DUMPSID_VOICES 3
+#include <cstdarg>
 
 class sidbuilder;
 class DumpSIDBuilder;
@@ -50,12 +47,8 @@ class DumpSID final : public sidemu
 
 private:
     // Dumpsid specific data
-    static const char def_absfmt[]; // default format (absolute clock)
-    static const char def_relfmt[]; // default format (relative clock)
-    static const char def_inifmt[]; // default format (setup init)
-    const char * m_absfmt;	   // instance format (absolute clock)
-    const char * m_relfmt;	   // instance format (relative clock)
-    const char * m_inifmt;	   // instance format (setup init)
+    static const char relfmt[];	   // default format (relative clock)
+    static const char inifmt[];	   // default format (setup init, long jump)
 
     // SID registers
     // GB: should we make c64sid::lastpoke[] protected) instead ?
@@ -73,9 +66,11 @@ private:
     // Dumping helpers
     void dumpStr(const char * str, int n);
     void dumpFmt(const char * fmt, ...);
-    void dumpAbs(const uint64_t clk, int adr, const char *dir, int val);
-    void dumpRel(const unsigned clk, int adr, const char *dir, int val);
-    void dumpReg(const uint8_t addr, const char *dir, uint8_t data);
+    void dumpIni(unsigned clk, int adr, int vol, int sid, float frq)
+    { dumpFmt(inifmt, clk, adr, sid, frq); }
+
+    void dumpRel(unsigned clk, int adr, const char *dir, int val);
+    void dumpReg(uint8_t addr, const char *dir, uint8_t data);
 
     inline uint8_t byteAddr(const uint8_t adr) const
     { return (adr&31) | (m_num<<5); }
