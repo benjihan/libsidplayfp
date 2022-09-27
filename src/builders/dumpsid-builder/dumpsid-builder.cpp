@@ -42,7 +42,7 @@
 DumpSIDBuilder::DumpSIDBuilder(const char * const label,
 			       const char * fn, int fd) :
     sidbuilder(label),
-    m_fn(), m_fd(-1)
+    m_fn(), m_fd(-1), m_opened(false)
 {
     if (!m_status)
         return;
@@ -53,18 +53,20 @@ DumpSIDBuilder::DumpSIDBuilder(const char * const label,
 
     if (fd != -1) {
         m_fd = fd;
-        if (fn != NULL)
-            m_fn.assign(fn);
+        if (fn != nullptr && *fn)
+            m_fn.assign (fn);
         else {
             char tmp[64];
-            int len = ::snprintf(tmp, sizeof(tmp), ">&%i", fd);
-            m_fn.assign(tmp,len);
+            int len = ::snprintf (tmp, sizeof(tmp), ">%i", fd);
+            m_fn.assign (tmp,len);
         }
     }
     else {
-        m_fn.assign(fn);
-        if(m_fd = ::open(fn, O_WRONLY|O_CREAT|O_TRUNC, 0666), m_fd == -1)
+        m_fn.assign (fn);
+        m_fd = ::open (fn, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+        if (m_fd == -1)
             setErrno("open");
+        m_opened = true;
     }
     assert ( (m_fd != -1) == m_status );
 #if DEBUG >= 10
@@ -80,7 +82,7 @@ DumpSIDBuilder::~DumpSIDBuilder()
 #if defined(DEBUG) && DEBUG >= 10
     ::printf("DumpSIDBuilder::~DumpSIDBuilder()\n");
 #endif
-    if (m_fd != -1)
+    if (m_opened)
         ::close(m_fd);
 }
 
@@ -198,13 +200,13 @@ void DumpSIDBuilder::setInfo(const char * file, const char *name,
     m_info.title.assign(name);
     m_info.author.assign(author);
 
-    if (m_fd) {
+    if (m_fd != -1) {
         std::stringstream s;
         s << "!SID-FILE: <" << file << '>';
         if (num > 0) s << " <" << num << '>';
-        s << std::endl
-          << "!SID-TITLE: <" << name << '>' << std::endl
-          << "!SID-AUTHOR: <" << author << '>' << std::endl;
+        s << '\n'
+          << "!SID-TITLE: <" << name << '>' << '\n'
+          << "!SID-AUTHOR: <" << author << '>' << '\n';
         dumpStr(s.str().c_str(), s.str().length());
     }
 }

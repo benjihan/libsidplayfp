@@ -36,6 +36,7 @@ class SID_EXTERN DumpSIDBuilder : public sidbuilder
 private:
     enum { MAXSIDS = 8 };	      // 32 registers for 8 sids => 1 byte address
 
+    bool m_opened;                      // true if open() by me
     int m_fd;				// dump file descriptor
     std::string m_fn;			// dump filename
 
@@ -43,11 +44,6 @@ private:
     void setErrno(int errnum, const char * fct);
     void setErrno(const char * fct);
     void dumpStr(const char * str, int len);
-
-    // void dumpStr(const char * str, const int n);
-    // void dumpFmt(const char * fmt, ...);
-    // void dumpRel(const unsigned	clk, const int adr, const char dir, const int val); // Relative
-    // void dumpAbs(const uint64_t clk, const int adr, const char dir, const int val); // Absolute
 
     struct info {
       bool set;
