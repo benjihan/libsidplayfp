@@ -147,7 +147,7 @@ unsigned int DumpSIDBuilder::create(unsigned int sids)
 	try
 	{
 	    std::unique_ptr<libsidplayfp::DumpSID>
-                sid(new libsidplayfp::DumpSID(this, count, m_fd, m_fn.c_str()));
+                sid(new libsidplayfp::DumpSID(this, count));
 
 	    // SID init failed?
 	    if (!sid->getStatus())
@@ -191,22 +191,21 @@ unsigned int DumpSIDBuilder::availDevices() const
     return MAXSIDS;
 }
 
-void DumpSIDBuilder::setInfo(const char * file, const char *name,
-                             const char *author, int num)
+void DumpSIDBuilder::setInfo(const char *file, const char *name,
+                             const char *auth, int song)
 {
     m_info.set = true;
-    m_info.num = num;
+    m_info.num = song;
     m_info.file.assign(file);
     m_info.title.assign(name);
-    m_info.author.assign(author);
+    m_info.author.assign(auth);
 
     if (m_fd != -1) {
         std::stringstream s;
-        s << "!SID-FILE: <" << file << '>';
-        if (num > 0) s << " <" << num << '>';
-        s << '\n'
-          << "!SID-TITLE: <" << name << '>' << '\n'
-          << "!SID-AUTHOR: <" << author << '>' << '\n';
+        s << "!SID-FILE: " << file << '\n';
+        s << "!SID-SONG: " << song << '\n';
+        s << "!SID-NAME: " << name << '\n';
+        s << "!SID-AUTH: " << auth << '\n';
         dumpStr(s.str().c_str(), s.str().length());
     }
 }

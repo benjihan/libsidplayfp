@@ -54,29 +54,27 @@ private:
     // GB: should we make c64sid::lastpoke[] protected) instead ?
     uint8_t	   m_regs[0x20];
     int		   m_num;		// Number
-    int		   m_fd;		// Dump file descriptor
-    const char	 * m_fn;		// Dump file path
     float	   m_sidfrq;		// SID clock frequence
     int		   m_model;		// SID model 6581 or 8520
     bool	   m_filter;		// filter active
     bool	   m_boost;		// digiboost enable
     uint8_t	   m_muted;		// muted voice bit mask
-    event_clock_t  m_deltaClk;
+    event_clock_t  m_lastClk;		// last dumped clock
 
     // Dumping helpers
     void dumpStr(const char * str, int n);
     void dumpFmt(const char * fmt, ...);
-    void dumpIni(unsigned clk, int adr, int vol, int sid, float frq)
-    { dumpFmt(inifmt, clk, adr, sid, frq); }
-
+    void dumpIni(unsigned clk, int adr, int vol, int sid, float frq);
     void dumpRel(unsigned clk, int adr, const char *dir, int val);
     void dumpReg(uint8_t addr, const char *dir, uint8_t data);
 
     inline uint8_t byteAddr(const uint8_t adr) const
     { return (adr&31) | (m_num<<5); }
 
+    volatile bool mine; // $$$ DELME
+
 public:
-    DumpSID(sidbuilder *builder, int num, int fd, const char * fn);
+    DumpSID(sidbuilder *builder, int num);
     ~DumpSID();
 
     static const char* getCredits();

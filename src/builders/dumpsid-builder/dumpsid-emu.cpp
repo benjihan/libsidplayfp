@@ -75,8 +75,7 @@ namespace libsidplayfp
 {
 
 // const unsigned int DumpSID::voices = DUMPSID_VOICES;
-
-const char DumpSID::inifmt[] = "%08X %02X %02X %04x %.4f\n";
+const char DumpSID::inifmt[] = "%08X %02X %02X %04x %08X\n";
 const char DumpSID::relfmt[] = "%04X %02X%s%02X\n";
 
 const char* DumpSID::getCredits()
@@ -86,11 +85,10 @@ const char* DumpSID::getCredits()
       "(C) 2022 Benjamin Gerard\n";
 }
 
-DumpSID::DumpSID (sidbuilder *builder, int num, int fd, const char * fn) :
+DumpSID::DumpSID (sidbuilder *builder, int num) :
     sidemu(builder),
-    m_num(num), m_fd(fd), m_fn(fn),
-    m_model(0), m_sidfrq(0),
-    m_boost(false)
+    m_num(num), m_model(0), m_sidfrq(0), m_boost(false),
+    m_lastClk(0)
 {
     sidemu::reset();
 }
@@ -103,27 +101,28 @@ void DumpSID::reset(uint8_t vol_and_filter)
 {
 #if defined(DEBUG) && DEBUG >= 10
     ::printf("DumpSID<%u>::reset(volume:%u)\n",
-             unsigned(m_num), unsigned(vol_and_filter));
+	     unsigned(m_num), unsigned(vol_and_filter));
 #endif
-    m_accessClk = m_deltaClk = 0;
+    m_accessClk = m_lastClk = 0;
 
     if (eventScheduler) {
-        dumpIni(0, byteAddr(0), vol_and_filter, m_model, m_sidfrq);
+	dumpIni(0, byteAddr(0), vol_and_filter, m_model, m_sidfrq);
     }
-
-        // GB: CAN NOT call clock() at this point
-        // m_regs[0x18] = vol_and_filter;
-        // dumpRel(0, byteAddr(0x18), " ", vol_and_filter);
+    // GB: CAN NOT call clock() at this point
+    // m_regs[0x18] = vol_and_filter;
+    // dumpRel(0, byteAddr(0x18), " ", vol_and_filter);
 }
 
 void DumpSID::clock()
 {
-#if 0 && defined(DEBUG) && DEBUG >= 10
-    ::printf("DumpSID<%u>::clock()\n", m_num);
-#endif
+    assert ( eventScheduler );
     event_clock_t currentClk = eventScheduler->getTime(EVENT_CLOCK_PHI1);
-    assert( currentClk >= m_accessClk );
-    m_deltaClk  = currentClk - m_accessClk;
+
+#if defined(DEBUG) && DEBUG >= 10
+    ::printf("DumpSID<%u>::clock() => %" PRIu64	" (+%" PRIu64")\n",
+             m_num, uint64_t(currentClk), uint64_t(m_deltaClk));
+#endif
+    assert ( currentClk >= m_accessClk );
     m_accessClk = currentClk;
 }
 
@@ -131,7 +130,7 @@ void DumpSID::dumpStr(const char * str, const int n)
 {
     DumpSIDBuilder * const b = static_cast<DumpSIDBuilder*>(builder());
     if (b->getStatus())
-      b->dumpStr(str, n);
+        b->dumpStr(str, n);
 }
 
 void DumpSID::dumpFmt(const char * fmt, ...)
@@ -146,9 +145,13 @@ void DumpSID::dumpFmt(const char * fmt, ...)
     dumpStr(str, len);
 }
 
+void DumpSID::dumpIni(unsigned clk, int adr, int vol, int sid, float frq)
+{
+    dumpFmt(inifmt, clk, adr, vol, sid, unsigned(frq*4096));
+}
 
 void DumpSID::dumpRel(const unsigned clk, const int adr,
-                      const char *dir, const int val)
+		      const char *dir, const int val)
 {
     assert( (clk & 0xffff) == clk );
     assert( (adr & 0xFF) == adr );
@@ -157,36 +160,40 @@ void DumpSID::dumpRel(const unsigned clk, const int adr,
 }
 
 void DumpSID::dumpReg(const uint8_t addr,
-                      const char *dir, const uint8_t data)
+		      const char *dir, const uint8_t data)
 {
     clock();
-    const int adr( byteAddr(addr) ); // build byte address
-    const unsigned relClk( m_deltaClk & 0xFFFF );
-    const unsigned jmpClk( m_deltaClk >> 16 );
+    const event_clock_t deltaClk = m_accessClk - m_lastClk;
+    const unsigned relClk( deltaClk & 0xFFFF );
+    const unsigned jmpClk( deltaClk >> 16 );
     if ( jmpClk ) {
-        dumpIni(jmpClk, 0, 0, 0, 0);
+	dumpIni(jmpClk, 0, 0, 0, 0);
     }
-    dumpRel(relClk, adr, dir, data);
+    dumpRel(relClk, byteAddr(addr), dir, data);
+    m_lastClk = m_accessClk;
 }
 
 uint8_t DumpSID::read(uint_least8_t addr)
 {
     addr &= 31;
     const uint8_t data = m_regs[addr & 31];
+    // GB: According to other SID simulators reading R/O SID registers
+    // should yield the last data bus value with more or less random
+    // bit degradations.
 
     switch (addr) {
-        case 0x19: case 0x1A:
-            // Paddle X and Y
-            break;
-        case 0x1B: case 0x1C:
-            // GB: Voice# #3 Waveform and ADSR output.
-            //
-            // For now we can not dump the actual value. It would
-            //     require at least a simple simulation. IDK if any
-            //     player uses this value as input for other SID
-            //     parameter (eg. filter cut-off).
-            dumpReg(addr, ">", data);
-            break;
+	case 0x19: case 0x1A:
+	    // Paddle X and Y
+	    break;
+	case 0x1B: case 0x1C:
+	    // GB: Voice# #3 Waveform and ADSR output.
+	    //
+	    // For now we can not dump the actual value. It would
+	    //     require at least a simple simulation. IDK if any
+	    //     player uses this value as input for other SID
+	    //     parameter (eg. filter cut-off).
+	    dumpReg(addr, ">", data);
+	    break;
     }
     return data;
 }
@@ -199,21 +206,21 @@ void DumpSID::write(uint_least8_t addr, uint8_t data)
     addr &= 31;
     m_regs[addr] = data;
     if ( addr < 0x07 ) {
-        if (m_muted & 1) return;        // Voice #1 muted
+	if (m_muted & 1) return;	// Voice #1 muted
     }
     else if ( addr < 0x0E ) {
-        if (m_muted & 2) return;        // Voice #2 muted
+	if (m_muted & 2) return;	// Voice #2 muted
     }
     else if ( addr < 0x15 ) {
-        if (m_muted & 4) return;        // voice #3 muted
+	if (m_muted & 4) return;	// voice #3 muted
     }
     else if ( addr < 0x18 ) {
-        if (!m_filter) return;          // filter disabled
+	if (!m_filter) return;		// filter disabled
     }
     else if (addr == 0x18) {
-        if (!m_filter) data &= 0x8F;    // filter disabled H/B?L bits
+	if (!m_filter) data &= 0x8F;	// filter disabled H/B?L bits
     }
-    else return;                        // Ignore RO regsters
+    else return;			// Ignore RO regsters
     dumpReg(addr, " ", data);
 }
 
@@ -243,16 +250,16 @@ void DumpSID::model(SidConfig::sid_model_t model, bool digiboost)
     m_muted = 0;
     switch (model)
     {
-        case SidConfig::MOS6581:
-            m_model = 0x6581;
-            break;
-        case SidConfig::MOS8580:
-            m_model = 0x8580;
-            break;
-        default:
-            m_error.assign("invalid SID model");
-            m_status = false;
-            return;
+	case SidConfig::MOS6581:
+	    m_model = 0x6581;
+	    break;
+	case SidConfig::MOS8580:
+	    m_model = 0x8580;
+	    break;
+	default:
+	    m_error.assign("invalid SID model");
+	    m_status = false;
+	    return;
     }
     m_status = true;
 #if defined(DEBUG) && DEBUG >= 10
@@ -261,12 +268,12 @@ void DumpSID::model(SidConfig::sid_model_t model, bool digiboost)
 }
 
 void DumpSID::sampling(float sidfrq, float spr,
-                       SidConfig::sampling_method_t m, bool fast)
+		       SidConfig::sampling_method_t m, bool fast)
 {
     m_sidfrq = sidfrq;
 #if defined(DEBUG) && DEBUG >= 10
     ::printf("DumpSID<%u>::sampling(sid<%.2f>)\n",
-             m_num, sidfrq, spr);
+	     m_num, sidfrq, spr);
 #endif
     sidemu::sampling(sidfrq, spr, m, fast);
 }

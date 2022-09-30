@@ -62,7 +62,7 @@ public:
     const char *credits() const;
     void filter(bool enable);
 
-    void setInfo(const char *file, const char *name, const char *author, int num = -1);
+    void setInfo(const char *file, const char *name, const char *auth, int song=-1);
     void flush();
 };
 
