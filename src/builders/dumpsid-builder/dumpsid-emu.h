@@ -48,7 +48,8 @@ class DumpSID final : public sidemu
 private:
     // Dumpsid specific data
     static const char relfmt[];	   // default format (relative clock)
-    static const char inifmt[];	   // default format (setup init, long jump)
+    static const char inifmt[];	   // default format (setup init)
+    static const char jmpfmt[];    // default format (long clock)
 
     // SID registers
     // GB: should we make c64sid::lastpoke[] protected) instead ?
@@ -70,8 +71,6 @@ private:
 
     inline uint8_t byteAddr(const uint8_t adr) const
     { return (adr&31) | (m_num<<5); }
-
-    volatile bool mine; // $$$ DELME
 
 public:
     DumpSID(sidbuilder *builder, int num);

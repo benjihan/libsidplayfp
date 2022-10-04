@@ -77,6 +77,7 @@ namespace libsidplayfp
 // const unsigned int DumpSID::voices = DUMPSID_VOICES;
 const char DumpSID::inifmt[] = "%08X %02X %02X %04x %08X\n";
 const char DumpSID::relfmt[] = "%04X %02X%s%02X\n";
+const char DumpSID::jmpfmt[] = "%08X\n";
 
 const char* DumpSID::getCredits()
 {
@@ -105,12 +106,11 @@ void DumpSID::reset(uint8_t vol_and_filter)
 #endif
     m_accessClk = m_lastClk = 0;
 
-    if (eventScheduler) {
-	dumpIni(0, byteAddr(0), vol_and_filter, m_model, m_sidfrq);
-    }
+    if (eventScheduler)
+      dumpIni(0, byteAddr(0), vol_and_filter, m_model, m_sidfrq);
     // GB: CAN NOT call clock() at this point
     // m_regs[0x18] = vol_and_filter;
-    // dumpRel(0, byteAddr(0x18), " ", vol_and_filter);
+    // Dumprel(0, byteAddr(0x18), " ", vol_and_filter);
 }
 
 void DumpSID::clock()
@@ -166,9 +166,8 @@ void DumpSID::dumpReg(const uint8_t addr,
     const event_clock_t deltaClk = m_accessClk - m_lastClk;
     const unsigned relClk( deltaClk & 0xFFFF );
     const unsigned jmpClk( deltaClk >> 16 );
-    if ( jmpClk ) {
-	dumpIni(jmpClk, 0, 0, 0, 0);
-    }
+    if ( jmpClk )
+      dumpFmt(jmpfmt, jmpClk);
     dumpRel(relClk, byteAddr(addr), dir, data);
     m_lastClk = m_accessClk;
 }
@@ -177,9 +176,9 @@ uint8_t DumpSID::read(uint_least8_t addr)
 {
     addr &= 31;
     const uint8_t data = m_regs[addr & 31];
-    // GB: According to other SID simulators reading R/O SID registers
+    // GB: According to other SID simulators reading RO SID registers
     // should yield the last data bus value with more or less random
-    // bit degradations.
+    // bit attenuation.
 
     switch (addr) {
 	case 0x19: case 0x1A:
@@ -218,7 +217,7 @@ void DumpSID::write(uint_least8_t addr, uint8_t data)
 	if (!m_filter) return;		// filter disabled
     }
     else if (addr == 0x18) {
-	if (!m_filter) data &= 0x8F;	// filter disabled H/B?L bits
+	if (!m_filter) data &= 0x8F;	// filter disabled H/B/L bits
     }
     else return;			// Ignore RO regsters
     dumpReg(addr, " ", data);
